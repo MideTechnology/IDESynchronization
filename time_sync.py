@@ -63,13 +63,12 @@ def resample_slide_and_compare(data1, data2, data1_times, samp_rate1, samp_rate2
 
 	# Handle resampling with integer approximations of the sampling rate ratio (This can likely be improved)
 	samp_rate_ratio = samp_rate1 / samp_rate2
-	sample_rate_ratio_approx = Fraction(samp_rate_ratio).limit_denominator(1000)
+	sample_rate_ratio_approx = Fraction(samp_rate_ratio).limit_denominator(1e6)
 	samp_rate_1_approx = sample_rate_ratio_approx.numerator
 	samp_rate_2_approx = sample_rate_ratio_approx.denominator
-	approx_samp_rates_product = samp_rate_1_approx * samp_rate_2_approx
 
-	resampled1 = scipy.signal.resample(data1, approx_samp_rates_product)
-	resampled2 = scipy.signal.resample(data2, approx_samp_rates_product)
+	resampled1 = scipy.signal.resample(data1, samp_rate_1_approx)
+	resampled2 = scipy.signal.resample(data2, samp_rate_2_approx)
 
 	print("Sample rate ratio approximation error:", samp_rate_ratio - float(sample_rate_ratio_approx))
 
