@@ -33,6 +33,13 @@ def get_sample_rate_ratio(true_sync, adjust_sync, true_timestep):
     return true_sync_freq / adjust_sync_freq
 
 
+def get_sync_area(signal, sample_frequency):
+    points = int(sample_frequency)
+    overlap = int(points/2)
+    a, b, c, d = plt.specgram(signal, NFFT=points, noverlap=overlap, Fs=sample_frequency)
+    print(a, b, c, d)
+    plt.show()
+
 def get_aligned_slices(data1, data2, data1_times, loc1, loc2):
     """
     Align the two data arrays based on the given two locations (having the data at those points line up).
@@ -91,7 +98,7 @@ def resample_slide_and_compare(data1, data2, data1_times, samp_rate1, samp_rate2
     return best_slices
 
 
-def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, true_time_steps, true_samp_rate,
+def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, adj_time_step, true_time_steps, # true_samp_rate,
                   plot_before_after=True):
     """
     :param true_signal: An ndarray for the signal data which is 'correct'
@@ -102,8 +109,10 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
     :param true_samp_rate: The sampling rate for the 'correct' signal
     :param plot_before_after: If the original and aligned signals should be plotted by matplotlib
     """
-    time_increment = true_time_steps[1] - true_time_steps[0]
-
+    adj_freq = len(adj_time_step)/(adj_time_step[-1] - adj_time_step[0])
+    get_sync_area(adjustable_sync, adj_freq)
+    time_increment = (true_time_steps[-1] - true_time_steps[0]) / len(true_time_steps)
+    true_samp_rate = 1/time_increment
     # Calculate the adjustable signal's sampling rate
     sample_rate_ratio = get_sample_rate_ratio(true_sync, adjustable_sync, time_increment)
     adjustable_samp_rate = true_samp_rate / sample_rate_ratio
@@ -132,3 +141,21 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
         plt.show()
 
     return aligned
+
+
+if __name__ == "__main__":
+    import os.path
+    base_dir = "C:/Users/pscheidler/Documents/Slam/Test_Data/A6/SyncTest"
+    fns = ["A_Dev_Accel", "A_Dev_Sync", "S_Dev_Accel", "S_Dev_Sync"]
+    database = {}
+    for fn in fns:
+        ffn = os.path.join(base_dir, fn + '.csv')
+        npa = np.genfromtxt(ffn, delimiter=',', skip_header=1)
+        database[fn.lower()] = {'time': npa[:, 0], 'data': npa[:, -1]}
+    true_signal = database['a_dev_accel']['data']
+    true_sync = database['a_dev_sync']['data']
+    adj_signal = database['s_dev_accel']['data']
+    adj_sync = database['s_dev_sync']['data']
+    true_time = database['a_dev_accel']['time']
+    adj_sync_time = database['s_dev_sync']['time']
+    aligned = align_signals(true_signal, adj_signal, true_sync, adj_sync, adj_sync_time, true_time)
