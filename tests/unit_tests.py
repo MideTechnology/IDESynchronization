@@ -22,6 +22,9 @@ def test_sample_rate_ratio():
 
 def test_align_signals():
 	"""
+	A test that samples from a single signal and it's corresponding sync signal to produce two different new signals
+	and syncs of different sampling rates.  It then tests the code's ability to sync the signals back together.
+
 	TODO:
 	 - Have this not slice the differently sized signals.  Not sure why this is done
 	 - Ensure terminology is correct (specifically sampling rate vs. frequency)
@@ -59,6 +62,9 @@ def test_align_signals():
 
 
 def test_using_pete_data():
+	"""
+	Testing the ability of the code to sync example data.
+	"""
 	TEST_DATA_DIR = "\\\\Mide2007\\Projects\\A6\\Design\\Software\\Sample_Data"
 
 	test_data_dict = load_csv_data(TEST_DATA_DIR)
@@ -81,4 +87,3 @@ if __name__ == '__main__':
 	test_align_signals()
 
 	test_using_pete_data()
-
