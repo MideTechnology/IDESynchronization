@@ -2,8 +2,8 @@ from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 
 import numpy as np
-from time_sync import load_csv_data, get_sample_rate_ratio, align_signals
-
+import matplotlib.pyplot as plt
+from UTickSynchronization.time_sync import load_csv_data, get_sample_rate_ratio, align_signals, sync_and_create_new_ide
 
 
 def test_sample_rate_ratio():
@@ -13,15 +13,11 @@ def test_sample_rate_ratio():
 	for samp_rate_1 in testing_sample_rates:
 		for samp_rate_2 in testing_sample_rates:
 			signal_1 = for_sampling[::samp_rate_1]
-			signal_2 = for_sampling[::samp_rate_2]
-
-			max_len = min(len(signal_1), len(signal_2))
-			signal_1 = signal_1[:max_len]
-			signal_2 = signal_2[:max_len]
+			signal_2 = for_sampling[50::samp_rate_2]
 
 			true_ratio = samp_rate_1 / samp_rate_2
+			ratio_error = get_sample_rate_ratio(signal_1, signal_2, true_timestep=1, adjust_timestep=1) - true_ratio
 
-			ratio_error = get_sample_rate_ratio(signal_1, signal_2, true_timestep=1) - true_ratio
 			assert abs(ratio_error) < .01
 
 
@@ -31,14 +27,13 @@ def test_align_signals():
 	and syncs of different sampling rates.  It then tests the code's ability to sync the signals back together.
 
 	TODO:
-	 - Have this not slice the differently sized signals.  Not sure why this is done
 	 - Ensure terminology is correct (specifically sampling rate vs. frequency)
 	"""
 	TEST_DATA_DIR = "\\\\Mide2007\\Projects\\A6\\Design\\Software\\Sample_Data"
 
 	test_data_dict = load_csv_data(TEST_DATA_DIR)
 
-	whole_signal = test_data_dict['true_signal'] ############## HANDLE THE XYZ CHANNELS ###################
+	whole_signal = test_data_dict['true_signal']
 	whole_sync = test_data_dict['true_sync']
 	whole_times = test_data_dict['true_time']
 
@@ -56,16 +51,8 @@ def test_align_signals():
 	true_sync = whole_sync[true_offset:: true_samp_rate]
 	adjustable_sync = whole_sync[adjustable_offset:: adjustable_samp_rate]
 
-	# max_signal_len = min(len(true_signal), len(adjustable_signal))
-	# true_signal, adjustable_signal = true_signal[:max_signal_len], adjustable_signal[:max_signal_len]
-	# true_times = true_times[:max_signal_len]
-
-	max_sync_len = min(len(true_sync), len(adjustable_sync))
-	true_sync, adjustable_sync = true_sync[:max_sync_len], adjustable_sync[:max_sync_len]
-
 	align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync,
 				  true_times[:len(true_signal)], true_times[:len(adjustable_signal)], true_sample_rate, plot_info=True)
-
 
 
 def test_using_pete_data():
@@ -76,7 +63,7 @@ def test_using_pete_data():
 
 	test_data_dict = load_csv_data(TEST_DATA_DIR)
 
-	true_signal = test_data_dict['true_signal']  ############## HANDLE THE XYZ CHANNELS ###################
+	true_signal = test_data_dict['true_signal']
 	true_sync = test_data_dict['true_sync']
 	true_times = test_data_dict['true_time']
 
@@ -89,9 +76,29 @@ def test_using_pete_data():
 				  plot_info=True)
 
 
+def test_synchronization_from_ide_to_aligned_csv():
+	ide_path = "\\\\Mide2007\\Projects\\A6\\Design\\Software\\Sample_Data\\ide_files"
+	true_ide = "ANA00008_T2.IDE"
+	adj_ide = "SSS00001_T2.IDE"
+
+	sync_and_create_new_ide(ide_path, true_ide, adj_ide)
+
+	to_plot_name = ["ANA00008_T2_Ch80.csv", "SSS00001_T2_Ch80.csv", "SSS00001_T2_Ch80_adjusted.csv"]
+	to_plot = list(map(lambda x: "%s\\%s"%(ide_path, x), to_plot_name))
+	for j, fn in enumerate(to_plot):
+		npa = np.genfromtxt(fn, delimiter=',', skip_header=1)
+		plt.plot(npa[:, 0], npa[:, -1], label=to_plot_name[j])
+
+	plt.legend()
+	plt.show()
+
+
+
 if __name__ == '__main__':
 	test_sample_rate_ratio()
 
 	test_align_signals()
 
 	test_using_pete_data()
+
+	test_synchronization_from_ide_to_aligned_csv()

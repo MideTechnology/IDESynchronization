@@ -9,7 +9,7 @@ import os
 import csv
 from fractions import Fraction
 
-#from ide_csv_conversion.ide2CsvWrapper import Ide2CsvWrapper
+from UTickSynchronization.ide_csv_converersion.Ide2CsvWrapper import Ide2CsvWrapper
 
 @nb.njit
 def xcorr_norm(x, y):
@@ -63,7 +63,7 @@ def get_aligned_slices(true_signal, adj_signal, true_signal_times, true_loc, adj
 
 	return slice1, slice2, time_slice
 
-def get_sample_rate_ratio(true_sync, adjust_sync, true_timestep, plot_info=False):
+def get_sample_rate_ratio(true_sync, adjust_sync, true_timestep, adjust_timestep, plot_info=False):
 	"""
 	Get the ratio of the two sampling rates for the sync signals (after calculating the adjusted sync signal's
 	sampling rate)
@@ -75,25 +75,25 @@ def get_sample_rate_ratio(true_sync, adjust_sync, true_timestep, plot_info=False
 	:return: The ratio of the sampling rates between the true and adjustable signals
 	"""
 	true_fft = np.abs(np.fft.rfft(true_sync))
-	rfft_length = max(len(true_sync), len(adjust_sync))
-	true_fft_freqs = np.fft.rfftfreq(rfft_length, d=true_timestep)
+	true_fft_freqs = np.fft.rfftfreq(len(true_sync), d=true_timestep)
+	# true_fft_freqs = np.fft.rfftfreq(len(true_sync), d=1)
 
 	adjust_fft = np.abs(np.fft.rfft(adjust_sync))
 
-
-	# This is seems to fix an issue that was being run into which I don't fully understand
 	true_fft[0] = adjust_fft[0] = np.finfo(adjust_fft.dtype).min
 
 	true_sync_freq = true_fft_freqs[np.argmax(true_fft)]
 
+	adjust_freqs = np.fft.rfftfreq(len(adjust_sync), d=adjust_timestep)
+	# adjust_freqs = np.fft.rfftfreq(len(adjust_sync), d=1)
 	if plot_info:
 		plt.plot(true_fft_freqs[1:len(true_fft)], true_fft[1:])
-		plt.plot(true_fft_freqs[1:len(adjust_fft)], adjust_fft[1:])
+		plt.plot(adjust_freqs[1:len(adjust_fft)], adjust_fft[1:])
 		plt.title("Sync Signal's FFT")
-		plt.xlabel("Frequency (Hz)") ######### DOUBLE CHECK IT's Hz #####################################
+		plt.xlabel("Frequency")
 		plt.show()
 
-	adjust_sync_freq = true_fft_freqs[np.argmax(adjust_fft)]
+	adjust_sync_freq = adjust_freqs[np.argmax(adjust_fft)]
 	return true_sync_freq / adjust_sync_freq
 
 
@@ -119,17 +119,25 @@ def resample_slide_and_compare(true_signal, adj_signal, true_signal_times, samp_
 	  just appear to hang)
 	"""
 	MAX_SAMP_RATE_RATIO_DENOMINATOR = int(1e6)
-	MIN_LENGTH_MULTIPLIER = 100
+	MIN_LENGTH_MULTIPLIER = 20
 
 	if similarity_metric is None:
 		similarity_metric = xcorr_norm
 
 	# Handle resampling with integer approximations of the sampling rate ratio (This can likely be improved)
 	samp_rate_ratio = samp_rate1 / samp_rate2 * len(true_signal) / len(adj_signal)
-	sample_rate_ratio_approx = Fraction(samp_rate_ratio).limit_denominator(MAX_SAMP_RATE_RATIO_DENOMINATOR)
 
-	scaler_multiplier = max(int(
-		max(len(true_signal), len(adj_signal)) * MIN_LENGTH_MULTIPLIER / sample_rate_ratio_approx.denominator), 1)
+	sample_rate_ratio_approx = Fraction(samp_rate_ratio)
+	if samp_rate_ratio > 1:
+		sample_rate_ratio_approx = 1/((1/sample_rate_ratio_approx).limit_denominator(MAX_SAMP_RATE_RATIO_DENOMINATOR))
+	else:
+		sample_rate_ratio_approx = sample_rate_ratio_approx.limit_denominator(MAX_SAMP_RATE_RATIO_DENOMINATOR)
+
+	if min(sample_rate_ratio_approx.numerator, sample_rate_ratio_approx.denominator) < MIN_LENGTH_MULTIPLIER * max(len(true_signal), len(adj_signal)):
+		scaler_multiplier = int(max(sample_rate_ratio_approx.numerator, sample_rate_ratio_approx.denominator) / (MIN_LENGTH_MULTIPLIER * max(len(true_signal), len(adj_signal))))
+		scaler_multiplier = max(1, scaler_multiplier)
+	else:
+		scaler_multiplier = 1
 
 	samp_rate_1_approx = sample_rate_ratio_approx.numerator * scaler_multiplier
 	samp_rate_2_approx = sample_rate_ratio_approx.denominator * scaler_multiplier
@@ -156,7 +164,7 @@ def resample_slide_and_compare(true_signal, adj_signal, true_signal_times, samp_
 	true_signal_times = np.linspace(true_signal_times[0], true_signal_times[-1], len(resampled1))
 
 	if plot_info:
-		#print("%d points of interest in signal 1\n%d points of intereste in signal 2"%(len(poi1), len(poi2)))
+		print("%d points of interest in signal 1\n%d points of intereste in signal 2"%(len(poi1), len(poi2)))
 		time_step = (true_signal_times[-1] - true_signal_times[0])/(len(resampled1) - 1)
 
 		plt.plot(resampled1)
@@ -221,6 +229,12 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
 	:param plot_info: If the original and aligned signals should be plotted by matplotlib
 	"""
 	if plot_info:
+		plt.plot(true_signal)
+		plt.plot(adjustable_signal)
+		plt.title("Original Signals")
+		plt.xlabel("Time Steps")
+		plt.show()
+
 		plt.plot(true_time_steps, true_signal)
 		plt.plot(adjustable_time_steps, adjustable_signal)
 		plt.title("Original Signals")
@@ -232,9 +246,11 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
 		max_start_offset = (true_time_steps[-1] - true_time_steps[0]) / 4
 
 	true_time_increment = (true_time_steps[-1] - true_time_steps[0])/(len(true_time_steps)-1)
+	adjustable_time_increment = (adjustable_time_steps[-1] - adjustable_time_steps[0]) / (len(adjustable_time_steps) - 1)
 
 	# Calculate the adjustable signal's sampling rate
-	sample_rate_ratio = get_sample_rate_ratio(true_sync, adjustable_sync, true_time_increment, plot_info)
+	sample_rate_ratio = get_sample_rate_ratio(true_sync, adjustable_sync, true_time_increment,
+											  adjustable_time_increment, plot_info)
 
 	adjustable_samp_rate = true_samp_rate / sample_rate_ratio
 	actual_adj_sampling_rate = true_time_increment / sample_rate_ratio
@@ -255,7 +271,7 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
 	adj_times_fixed = adj_start_time + actual_adj_sampling_rate * np.arange(len(adjustable_time_steps))
 
 	if plot_info:
-		# The below commented out code plots the resampled data
+		# The below commented out code plots the resampled data with it's resampled time stamps
 		# plt.plot(true_time_steps, true_signal)
 		# plt.plot(np.linspace(aligned_time_steps[0], aligned_time_steps[-1], len(adjustable_aligned)), adjustable_aligned)
 		# plt.title("Aligned Signals")
@@ -297,35 +313,71 @@ def load_csv_data(base_dir):
 		"adj_sync_time": database['s_dev_sync']['time'],
 	}
 
-def sync_and_create_new_ide(ide_filename):
+def new_load_csv_data(filename_dict):
 	"""
-	THIS IS NOT DONE
+	TODO:
+	 - Have this take in file path+name for all the files, rather than the base directory
+
+	:return: A dictionary mapping a signals string identification to the signal's data
 	"""
+	database = {}
+	for name in filename_dict.values():
+		npa = np.genfromtxt(name, delimiter=',', skip_header=1)
+		with open(name, 'r') as f:
+			has_sync_mask = np.array(list(map(lambda x: "Sync" in x, f.readline().split(','))))
+			nonzero_indecies = has_sync_mask.nonzero()[0]
+			if len(nonzero_indecies) == 0:  # If the data is acceleration data
+				# Get the magnitude of the x, y, and z accelrations
+				database[name] = {'time': npa[:, 0], 'data': np.sqrt(np.sum(npa[:, 1:]**2, axis=1))}
+			else:
+				data_column = nonzero_indecies[0]
+				database[name] = {'time': npa[:, 0], 'data': npa[:, data_column]}
+
+	return {
+		"true_signal": database[filename_dict['true_signal']]['data'],
+		"true_sync": database[filename_dict['true_sync']]['data'],
+		"adj_signal": database[filename_dict['adj_signal']]['data'],
+		"adj_sync": database[filename_dict['adj_sync']]['data'],
+		"true_time": database[filename_dict['true_signal']]['time'],
+		"adj_time": database[filename_dict['adj_signal']]['time'],
+		"adj_sync_time": database[filename_dict['adj_sync']]['time'],
+	}
+
+
+def sync_and_create_new_ide(ides_path, true_ide_filename, adj_ide_filename):
 
 	# Create csv files for the IDE file (idally temporary files)
-	ide_to_csv_converter = Ide2CsvWrapper(ide_filename)
+	to_convert_to_csv = list(map(lambda x: "%s\\%s"%(ides_path,x), [true_ide_filename, adj_ide_filename]))
+	conversion_executable = "..\\ide_csv_converersion\\ide2csv_64b.exe"
+	ide_to_csv_converter = Ide2CsvWrapper(to_convert_to_csv, channels=[8, 80], converter=conversion_executable)
 	ide_to_csv_converter.run()
 
+	filename_dict = {
+		"true_signal": "%s\\%s_Ch80.csv"%(ides_path, true_ide_filename.split('.')[0]),
+		"true_sync": "%s\\%s_Ch08.csv"%(ides_path, true_ide_filename.split('.')[0]),
+		"adj_signal": "%s\\%s_Ch80.csv"%(ides_path, adj_ide_filename.split('.')[0]),
+		"adj_sync": "%s\\%s_Ch08.csv"%(ides_path, adj_ide_filename.split('.')[0]),
+	}
+
 	# Load csv data
-	CSV_PATH = None
-	data_dict = load_csv_data(CSV_PATH)
+	data_dict = new_load_csv_data(filename_dict)
 
 	# Get synchronized timesteps
 	true_times = data_dict['true_time']
 	TRUE_SAMPLE_RATE = (true_times[-1] - true_times[0]) / (len(true_times) - 1)
 	_, new_adj_times = align_signals(data_dict['true_signal'], data_dict['adj_signal'], data_dict['true_sync'],
-									 data_dict['adj_sync'], true_times, data_dict['adj_time'], TRUE_SAMPLE_RATE)
+									 data_dict['adj_sync'], true_times, data_dict['adj_time'], TRUE_SAMPLE_RATE, plot_info=True)
 
 
 	# create csv for new data (ideally temporary files)
-	ADJUST_SIGNAL_CSV_DATA = None
-	new_signal_data = np.array(ADJUST_SIGNAL_CSV_DATA)
-	new_signal_data[1:, 1] = new_adj_times
+	with open(filename_dict["adj_signal"]) as f:
+		reader = csv.reader(f)
+		new_signal_data = np.array(list(reader))
 
-	new_csv_filename = ""
-	with open(new_csv_filename, 'w') as f:
+	new_signal_data[1:, 0] = new_adj_times
+
+	new_csv_filename = "%s_adjusted.csv"%filename_dict["adj_signal"][:-4]
+	with open(new_csv_filename, 'wb') as f:
 		writer = csv.writer(f)
 		writer.writerows(new_signal_data)
 
-
-	# rewrite csv to new ide file
