@@ -29,7 +29,7 @@ def test_align_signals():
 	TODO:
 	 - Ensure terminology is correct (specifically sampling rate vs. frequency)
 	"""
-	TEST_DATA_DIR = "\\\\Mide2007\\Projects\\A6\\Design\\Software\\Sample_Data"
+	TEST_DATA_DIR = "data"
 
 	test_data_dict = load_csv_data(TEST_DATA_DIR)
 
@@ -59,7 +59,7 @@ def test_using_pete_data():
 	"""
 	Testing the ability of the code to sync example data.
 	"""
-	TEST_DATA_DIR = "\\\\Mide2007\\Projects\\A6\\Design\\Software\\Sample_Data"
+	TEST_DATA_DIR = "data"
 
 	test_data_dict = load_csv_data(TEST_DATA_DIR)
 
@@ -77,7 +77,7 @@ def test_using_pete_data():
 
 
 def test_synchronization_from_ide_to_aligned_csv():
-	ide_path = "\\\\Mide2007\\Projects\\A6\\Design\\Software\\Sample_Data\\ide_files"
+	ide_path = "data"
 	true_ide = "ANA00008_T2.IDE"
 	adj_ide = "SSS00001_T2.IDE"
 

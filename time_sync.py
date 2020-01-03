@@ -293,6 +293,7 @@ def load_csv_data(base_dir):
 	"""
 	TODO:
 	 - Have this take in file path+name for all the files, rather than the base directory
+	 - Remove this function entirely
 
 	:return: A dictionary mapping a signals string identification to the signal's data
 	"""
