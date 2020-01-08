@@ -1,9 +1,11 @@
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
-from UTickSynchronization.time_sync import load_csv_data, get_sample_rate_ratio, align_signals, sync_and_create_new_ide
+sys.path.insert(0,'..')
+from time_sync import load_csv_data, get_sample_rate_ratio, align_signals, sync_and_create_new_ide
 
 
 def test_sample_rate_ratio():
@@ -29,7 +31,7 @@ def test_align_signals():
 	TODO:
 	 - Ensure terminology is correct (specifically sampling rate vs. frequency)
 	"""
-	TEST_DATA_DIR = "data"
+	TEST_DATA_DIR = "tests/data"
 
 	test_data_dict = load_csv_data(TEST_DATA_DIR)
 
@@ -59,7 +61,7 @@ def test_using_pete_data():
 	"""
 	Testing the ability of the code to sync example data.
 	"""
-	TEST_DATA_DIR = "data"
+	TEST_DATA_DIR = "tests/data"
 
 	test_data_dict = load_csv_data(TEST_DATA_DIR)
 
@@ -77,7 +79,7 @@ def test_using_pete_data():
 
 
 def test_synchronization_from_ide_to_aligned_csv():
-	ide_path = "data"
+	ide_path = "tests/data"
 	true_ide = "ANA00008_T2.IDE"
 	adj_ide = "SSS00001_T2.IDE"
 
@@ -95,10 +97,10 @@ def test_synchronization_from_ide_to_aligned_csv():
 
 
 if __name__ == '__main__':
-	test_sample_rate_ratio()
+#	test_sample_rate_ratio()
 
-	test_align_signals()
+#	test_align_signals()
 
-	test_using_pete_data()
+#	test_using_pete_data()
 
 	test_synchronization_from_ide_to_aligned_csv()

@@ -14,7 +14,7 @@ class Ide2CsvWrapper(object):
                  channels=ide_helpers.channels_by_name.keys(), name=True, utc=True,
                  remove_dc=False, output_path=None):
         ## TODO: Check existance of converter, throw an error
-        if isinstance(ide_files, basestring):
+        if isinstance(ide_files, str):
             self.ide_files = [ide_files]
         else:
             self.ide_files = ide_files

@@ -9,7 +9,7 @@ import os
 import csv
 from fractions import Fraction
 
-from UTickSynchronization.ide_csv_converersion.Ide2CsvWrapper import Ide2CsvWrapper
+from ide_csv_converersion.Ide2CsvWrapper import Ide2CsvWrapper
 
 @nb.njit
 def xcorr_norm(x, y):
@@ -349,7 +349,7 @@ def sync_and_create_new_ide(ides_path, true_ide_filename, adj_ide_filename):
 
 	# Create csv files for the IDE file (idally temporary files)
 	to_convert_to_csv = list(map(lambda x: "%s\\%s"%(ides_path,x), [true_ide_filename, adj_ide_filename]))
-	conversion_executable = "..\\ide_csv_converersion\\ide2csv_64b.exe"
+	conversion_executable = "ide_csv_converersion\\ide2csv_64b.exe"
 	ide_to_csv_converter = Ide2CsvWrapper(to_convert_to_csv, channels=[8, 80], converter=conversion_executable)
 	ide_to_csv_converter.run()
 
@@ -367,7 +367,7 @@ def sync_and_create_new_ide(ides_path, true_ide_filename, adj_ide_filename):
 	true_times = data_dict['true_time']
 	TRUE_SAMPLE_RATE = (true_times[-1] - true_times[0]) / (len(true_times) - 1)
 	_, new_adj_times = align_signals(data_dict['true_signal'], data_dict['adj_signal'], data_dict['true_sync'],
-									 data_dict['adj_sync'], true_times, data_dict['adj_time'], TRUE_SAMPLE_RATE, plot_info=True)
+									 data_dict['adj_sync'], true_times, data_dict['adj_time'], TRUE_SAMPLE_RATE)	# , plot_info=True
 
 
 	# create csv for new data (ideally temporary files)
@@ -378,7 +378,7 @@ def sync_and_create_new_ide(ides_path, true_ide_filename, adj_ide_filename):
 	new_signal_data[1:, 0] = new_adj_times
 
 	new_csv_filename = "%s_adjusted.csv"%filename_dict["adj_signal"][:-4]
-	with open(new_csv_filename, 'wb') as f:
+	with open(new_csv_filename, 'wb') as f:		# Note: Change to wb for Python2, w for Python3. Python3 also needs to remove \n
 		writer = csv.writer(f)
 		writer.writerows(new_signal_data)
 
