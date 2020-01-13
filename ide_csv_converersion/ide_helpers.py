@@ -1,4 +1,5 @@
-channels_by_name = {"Main Accel": 8, "Temp": 36, "DC Accel": 32, "IMU": 70, "Gyro": 70, "TPH" : 59}
+channels_by_name = {"Main Accel": 8, "Temp": 36, "Accel ADXL345-75": 32, "IMU": 70, "Gyro": 70, "TPH": 59, "BMG250": 84,
+                    "ADXL355-7": 80}
 
 def channel_desc_to_id(channels):
     channel_ids = []

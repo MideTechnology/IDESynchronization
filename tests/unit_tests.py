@@ -5,102 +5,122 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 sys.path.insert(0,'..')
-from time_sync import load_csv_data, get_sample_rate_ratio, align_signals, sync_and_create_new_ide
+from time_sync import load_csv_data, get_sample_rate_ratio, align_signals, sync_and_create_new_csv
+
+
+def make_sine(frequency, sample_period, length, offset_points=0):
+    offset_time = offset_points*sample_period
+    time = np.arange(offset_points*sample_period, length*sample_period+offset_time, sample_period)
+    sin = np.sin(2*np.pi*time*frequency)
+    return sin
 
 
 def test_sample_rate_ratio():
-	for_sampling = np.sin(np.arange(1e6)/100)  # The division by a scaler is that integer sampling rates are reasonable
+    passed = True
 
-	testing_sample_rates = [1, 2, 5, 8]
-	for samp_rate_1 in testing_sample_rates:
-		for samp_rate_2 in testing_sample_rates:
-			signal_1 = for_sampling[::samp_rate_1]
-			signal_2 = for_sampling[50::samp_rate_2]
+    true_sample_periods = [0.0002, 0.0001, 0.00005, 0.00015]
+    adj_target_sample_periods = [0.00005, 0.0002, 0.0001, 0.00015]
+    # multiplier is 1 + error
+    adj_sample_period_multipliers = [1+0.01, 1-0.01, 1+0, 1+20/1e6]
+    sync_frequency = 800
+    sample_length = 100000
+    adj_offset = 97
+    for true_sample_period in true_sample_periods:
+        for adj_target_sample_period in adj_target_sample_periods:
+            for adj_sample_period_multiplier in adj_sample_period_multipliers:
+                adj_actual_sample_period = adj_target_sample_period * adj_sample_period_multiplier
+                true_sync_signal = make_sine(sync_frequency, true_sample_period, sample_length)
+                adj_sync_signal = make_sine(sync_frequency, adj_actual_sample_period,
+                                            sample_length, offset_points=adj_offset)
+                true_ratio = adj_target_sample_period / adj_actual_sample_period
+                calculated_ratio = get_sample_rate_ratio(true_sync_signal, adj_sync_signal, true_timestep=true_sample_period,
+                                                    adjust_timestep=adj_target_sample_period)
+                ratio_error = calculated_ratio - true_ratio
 
-			true_ratio = samp_rate_1 / samp_rate_2
-			ratio_error = get_sample_rate_ratio(signal_1, signal_2, true_timestep=1, adjust_timestep=1) - true_ratio
-
-			assert abs(ratio_error) < .01
-
+                if abs(ratio_error) >= .01:
+                    passed = False
+                assert abs(ratio_error) < .01
+    return passed
 
 def test_align_signals():
-	"""
-	A test that samples from a single signal and it's corresponding sync signal to produce two different new signals
-	and syncs of different sampling rates.  It then tests the code's ability to sync the signals back together.
+    """
+    A test that samples from a single signal and it's corresponding sync signal to produce two different new signals
+    and syncs of different sampling rates.  It then tests the code's ability to sync the signals back together.
 
-	TODO:
-	 - Ensure terminology is correct (specifically sampling rate vs. frequency)
-	"""
-	TEST_DATA_DIR = "tests/data"
+    TODO:
+     - Ensure terminology is correct (specifically sampling rate vs. frequency)
+    """
+    TEST_DATA_DIR = "tests/data"
 
-	test_data_dict = load_csv_data(TEST_DATA_DIR)
+    test_data_dict = load_csv_data(TEST_DATA_DIR)
 
-	whole_signal = test_data_dict['true_signal']
-	whole_sync = test_data_dict['true_sync']
-	whole_times = test_data_dict['true_time']
+    whole_signal = test_data_dict['true_signal']
+    whole_sync = test_data_dict['true_sync']
+    whole_times = test_data_dict['true_time']
 
-	true_sample_rate = (whole_times[-1] - whole_times[0])/(len(whole_times)-1)
+    true_sample_rate = (whole_times[-1] - whole_times[0])/(len(whole_times)-1)
 
-	true_samp_rate = 2
-	adjustable_samp_rate = 3
-	true_offset = 1000
-	adjustable_offset = 0
+    true_samp_rate = 2
+    adjustable_samp_rate = 3
+    true_offset = 1000
+    adjustable_offset = 0
 
-	true_signal = whole_signal[true_offset:: true_samp_rate]
-	adjustable_signal = whole_signal[adjustable_offset:: adjustable_samp_rate]
-	true_times = whole_times[true_offset:: true_samp_rate]
+    true_signal = whole_signal[true_offset:: true_samp_rate]
+    adjustable_signal = whole_signal[adjustable_offset:: adjustable_samp_rate]
+    true_times = whole_times[true_offset:: true_samp_rate]
 
-	true_sync = whole_sync[true_offset:: true_samp_rate]
-	adjustable_sync = whole_sync[adjustable_offset:: adjustable_samp_rate]
+    true_sync = whole_sync[true_offset:: true_samp_rate]
+    adjustable_sync = whole_sync[adjustable_offset:: adjustable_samp_rate]
 
-	align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync,
-				  true_times[:len(true_signal)], true_times[:len(adjustable_signal)], true_sample_rate, plot_info=True)
+    align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync,
+                  true_times[:len(true_signal)], true_times[:len(adjustable_signal)], true_sample_rate, plot_info=True)
 
 
 def test_using_pete_data():
-	"""
-	Testing the ability of the code to sync example data.
-	"""
-	TEST_DATA_DIR = "tests/data"
+    """
+    Testing the ability of the code to sync example data.
+    """
+    TEST_DATA_DIR = "tests/data"
 
-	test_data_dict = load_csv_data(TEST_DATA_DIR)
+    test_data_dict = load_csv_data(TEST_DATA_DIR)
 
-	true_signal = test_data_dict['true_signal']
-	true_sync = test_data_dict['true_sync']
-	true_times = test_data_dict['true_time']
+    true_signal = test_data_dict['true_signal']
+    true_sync = test_data_dict['true_sync']
+    true_times = test_data_dict['true_time']
 
-	adjust_signal = test_data_dict['adj_signal']
-	adjust_sync = test_data_dict['adj_sync']
-	adjust_times = test_data_dict['adj_time']
+    adjust_signal = test_data_dict['adj_signal']
+    adjust_sync = test_data_dict['adj_sync']
+    adjust_times = test_data_dict['adj_time']
 
-	TRUE_SAMPLE_RATE = (true_times[-1] - true_times[0]) / (len(true_times) - 1)
-	align_signals(true_signal, adjust_signal, true_sync, adjust_sync, true_times, adjust_times, TRUE_SAMPLE_RATE,
-				  plot_info=True)
+    TRUE_SAMPLE_RATE = (true_times[-1] - true_times[0]) / (len(true_times) - 1)
+    align_signals(true_signal, adjust_signal, true_sync, adjust_sync, true_times, adjust_times, TRUE_SAMPLE_RATE,
+                  plot_info=True)
 
 
 def test_synchronization_from_ide_to_aligned_csv():
-	ide_path = "tests/data"
-	true_ide = "ANA00008_T2.IDE"
-	adj_ide = "SSS00001_T2.IDE"
+    ide_path = "tests/data"
+    true_ide = "ANA00008_T2.IDE"
+    adj_ide = "SSS00001_T2.IDE"
 
-	sync_and_create_new_ide(ide_path, true_ide, adj_ide)
+    sync_and_create_new_csv(ide_path, true_ide, adj_ide)
 
-	to_plot_name = ["ANA00008_T2_Ch80.csv", "SSS00001_T2_Ch80.csv", "SSS00001_T2_Ch80_adjusted.csv"]
-	to_plot = list(map(lambda x: "%s\\%s"%(ide_path, x), to_plot_name))
-	for j, fn in enumerate(to_plot):
-		npa = np.genfromtxt(fn, delimiter=',', skip_header=1)
-		plt.plot(npa[:, 0], npa[:, -1], label=to_plot_name[j])
+    to_plot_name = ["ANA00008_T2_Ch80.csv", "SSS00001_T2_Ch80.csv", "SSS00001_T2_Ch80_adjusted.csv"]
+    to_plot = list(map(lambda x: "%s\\%s"%(ide_path, x), to_plot_name))
+    for j, fn in enumerate(to_plot):
+        npa = np.genfromtxt(fn, delimiter=',', skip_header=1)
+        plt.plot(npa[:, 0], npa[:, -1], label=to_plot_name[j])
 
-	plt.legend()
-	plt.show()
+    plt.legend()
+    plt.show()
 
 
 
 if __name__ == '__main__':
-#	test_sample_rate_ratio()
+    if test_sample_rate_ratio():
+        print("Sample Rate Ratio test passed")
 
 #	test_align_signals()
 
 #	test_using_pete_data()
 
-	test_synchronization_from_ide_to_aligned_csv()
+    test_synchronization_from_ide_to_aligned_csv()
