@@ -2,10 +2,12 @@ from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 
 import sys
+import wx
 import numpy as np
 import matplotlib.pyplot as plt
 sys.path.insert(0,'..')
-from time_sync import load_csv_data, get_sample_rate_ratio, align_signals, sync_and_create_new_csv
+from UTickSynchronization.time_sync import load_csv_data, get_sample_rate_ratio, align_signals, sync_and_create_new_csv
+from UTickSynchronization.sync_ui import SynchronizationWindow
 
 
 def make_sine(frequency, sample_period, length, offset_points=0):
@@ -50,7 +52,7 @@ def test_align_signals():
     TODO:
      - Ensure terminology is correct (specifically sampling rate vs. frequency)
     """
-    TEST_DATA_DIR = "tests/data"
+    TEST_DATA_DIR = "tests\\data"
 
     test_data_dict = load_csv_data(TEST_DATA_DIR)
 
@@ -72,15 +74,22 @@ def test_align_signals():
     true_sync = whole_sync[true_offset:: true_samp_rate]
     adjustable_sync = whole_sync[adjustable_offset:: adjustable_samp_rate]
 
-    align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync,
-                  true_times[:len(true_signal)], true_times[:len(adjustable_signal)], true_sample_rate, plot_info=True)
+    align_signals(true_signal,
+                  adjustable_signal,
+                  true_sync,
+                  adjustable_sync,
+                  true_times[:len(true_signal)],
+                  true_times[:len(adjustable_signal)],
+                  true_sample_rate,
+                  lambda x: None,
+                  plot_info=True)
 
 
 def test_using_pete_data():
     """
     Testing the ability of the code to sync example data.
     """
-    TEST_DATA_DIR = "tests/data"
+    TEST_DATA_DIR = "tests\\data"
 
     test_data_dict = load_csv_data(TEST_DATA_DIR)
 
@@ -93,19 +102,61 @@ def test_using_pete_data():
     adjust_times = test_data_dict['adj_time']
 
     TRUE_SAMPLE_RATE = (true_times[-1] - true_times[0]) / (len(true_times) - 1)
-    align_signals(true_signal, adjust_signal, true_sync, adjust_sync, true_times, adjust_times, TRUE_SAMPLE_RATE,
+    align_signals(true_signal,
+                  adjust_signal,
+                  true_sync,
+                  adjust_sync,
+                  true_times,
+                  adjust_times,
+                  TRUE_SAMPLE_RATE,
+                  lambda x: None,
                   plot_info=True)
 
-
 def test_synchronization_from_ide_to_aligned_csv():
-    ide_path = "tests/data"
-    true_ide = "ANA00008_T2.IDE"
-    adj_ide = "SSS00001_T2.IDE"
+    true_ide = "tests\\data\\ANA00008_T2.IDE"
+    adj_ide = "tests\\data\\SSS00001_T2.IDE"
+    output_path = "tests\\data"
 
-    sync_and_create_new_csv(ide_path, true_ide, adj_ide)
+    sync_and_create_new_csv(
+        true_ide,
+        adj_ide,
+        output_path,
+        show_signal_plots=True)
 
+    # Load and plot the data for the original signals and the adjusted signals from the csv files created
     to_plot_name = ["ANA00008_T2_Ch80.csv", "SSS00001_T2_Ch80.csv", "SSS00001_T2_Ch80_adjusted.csv"]
-    to_plot = list(map(lambda x: "%s\\%s"%(ide_path, x), to_plot_name))
+    to_plot = list(map(lambda x: "%s\\%s"%(output_path, x), to_plot_name))
+    for j, fn in enumerate(to_plot):
+        npa = np.genfromtxt(fn, delimiter=',', skip_header=1)
+        plt.plot(npa[:, 0], npa[:, -1], label=to_plot_name[j])
+
+    plt.legend()
+    plt.show()
+
+def test_synchronization_through_ui():
+    """
+    NOTES:
+     - The UI window may look a bit funky, but that's okay
+    """
+    app = wx.App(False)
+    frame = SynchronizationWindow(None, "UTick Signal Synchronization")
+
+    true_ide = "tests\\data\\ANA00008_T2.IDE"
+    adj_ide = "tests\\data\\SSS00001_T2.IDE"
+    output_path = "tests\\data"
+
+    # Set the paths in the ui elements
+    frame.true_ide_edit_field.write(true_ide)
+    frame.adj_ide_edit_field.write(adj_ide)
+    frame.output_edit_field.write(output_path)
+
+    frame.graph_check_box.SetValue(True)
+
+    frame.synchronize()
+
+    # Load and plot the data for the original signals and the adjusted signals from the csv files created
+    to_plot_name = ["ANA00008_T2_Ch80.csv", "SSS00001_T2_Ch80.csv", "SSS00001_T2_Ch80_adjusted.csv"]
+    to_plot = list(map(lambda x: "%s\\%s"%(output_path, x), to_plot_name))
     for j, fn in enumerate(to_plot):
         npa = np.genfromtxt(fn, delimiter=',', skip_header=1)
         plt.plot(npa[:, 0], npa[:, -1], label=to_plot_name[j])
@@ -123,4 +174,6 @@ if __name__ == '__main__':
 
 #	test_using_pete_data()
 
-    test_synchronization_from_ide_to_aligned_csv()
+    # test_synchronization_from_ide_to_aligned_csv()
+
+    test_synchronization_through_ui()

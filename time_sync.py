@@ -9,7 +9,8 @@ import os
 import csv
 from fractions import Fraction
 
-from ide_csv_converersion.Ide2CsvWrapper import Ide2CsvWrapper
+from UTickSynchronization.ide_csv_converersion.Ide2CsvWrapper import Ide2CsvWrapper
+import UTickSynchronization.ide_csv_converersion.ide_helpers as ide_helpers
 
 @nb.njit
 def xcorr_norm(x, y):
@@ -118,7 +119,7 @@ def get_sample_rate_ratio(true_sync, adjust_sync, true_timestep, adjust_timestep
 
 
 def resample_slide_and_compare(true_signal, adj_signal, true_signal_times, samp_rate1, samp_rate2, max_start_offset,
-                               similarity_metric=None, plot_info=False):
+                               progress_callback, similarity_metric=None, plot_info=False):
     """
 
     :param true_signal: An ndarray for the signal data which is 'correct'
@@ -162,6 +163,8 @@ def resample_slide_and_compare(true_signal, adj_signal, true_signal_times, samp_
     samp_rate_1_approx = sample_rate_ratio_approx.numerator * scaler_multiplier
     samp_rate_2_approx = sample_rate_ratio_approx.denominator * scaler_multiplier
 
+    progress_callback("Resampling the signals for consistent frequency")
+
     # resampled1 = scipy.signal.resample(true_signal, samp_rate_1_approx)
     # resampled2 = scipy.signal.resample(adj_signal, samp_rate_2_approx)
     resampled1 = scipy.signal.resample_poly(true_signal, samp_rate_1_approx, len(true_signal))
@@ -169,6 +172,8 @@ def resample_slide_and_compare(true_signal, adj_signal, true_signal_times, samp_
 
 
     # print("Sample rate ratio approximation error:", samp_rate_ratio - float(sample_rate_ratio_approx))
+
+    progress_callback("Finding POI (peaks and valleys)")
 
     # Get the points of interest within the signals
     peaks1 = scipy.signal.find_peaks(resampled1, prominence=1)[0] ############ SHOULD LOOK INTO USING find_peaks_cwt #############
@@ -194,6 +199,8 @@ def resample_slide_and_compare(true_signal, adj_signal, true_signal_times, samp_
         plt.xlabel("Time Steps (%.5e seconds)" % time_step)
         plt.title("Resampled Data with Marked POI ")
         plt.show()
+
+    progress_callback("Aligning POI pairs for optimal time offset")
 
     return allign_location_search(resampled1, resampled2, true_signal_times, poi1, poi2, similarity_metric, max_start_offset)
 
@@ -233,7 +240,7 @@ def allign_location_search(true_signal, adj_signal, true_signal_times, poi1, poi
 
 
 def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, true_time_steps, adjustable_time_steps,
-                  true_sample_period, max_start_offset=None, plot_info=False):
+                  true_sample_period, progress_callback, max_start_offset=None, plot_info=False):
     """
     TODO:
      - Plot against time rather than index number
@@ -268,6 +275,8 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
     true_time_increment = (true_time_steps[-1] - true_time_steps[0])/(len(true_time_steps)-1)
     adjustable_time_increment = (adjustable_time_steps[-1] - adjustable_time_steps[0]) / (len(adjustable_time_steps) - 1)
 
+    progress_callback("Computing sampling frequency error")
+
     # Calculate the adjustable signal's sampling rate
     sample_rate_ratio = get_sample_rate_ratio(true_sync, adjustable_sync, true_time_increment,
                                               adjustable_time_increment, plot_info)
@@ -282,6 +291,7 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
         true_time_steps,
         true_sample_period,
         adjustable_sample_period,
+        progress_callback=progress_callback,
         max_start_offset=max_start_offset,
         plot_info=plot_info)
 
@@ -364,24 +374,34 @@ def new_load_csv_data(filename_dict):
     }
 
 
-def sync_and_create_new_csv(ides_path, true_ide_filename, adj_ide_filename, convert_all_channels=False):
+def sync_and_create_new_csv(true_ide_path, adj_ide_path, output_dir, convert_all_channels=False, progress_callback=None, show_signal_plots=False):
+    if progress_callback is None:
+        progress_callback = lambda x: None
 
-    # Create csv files for the IDE file (ideally temporary files)
-    to_convert_to_csv = list(map(lambda x: "%s\\%s" % (ides_path, x), [true_ide_filename, adj_ide_filename]))
+    to_convert_to_csv = [true_ide_path, adj_ide_path]
     conversion_executable = "ide_csv_converersion\\ide2csv_64b.exe"
-    if convert_all_channels:
-        ide_to_csv_converter = Ide2CsvWrapper(to_convert_to_csv, converter=conversion_executable)
-    else:
-        ide_to_csv_converter = Ide2CsvWrapper(to_convert_to_csv, channels=[8, 80], converter=conversion_executable)
+
+    progress_callback("Converting IDE files to CSV")
+
+    # Create csv files for the IDE file
+    channels_to_convert = ide_helpers.channels_by_name.keys() if convert_all_channels else [8, 80]
+    ide_to_csv_converter = Ide2CsvWrapper(to_convert_to_csv, channels=channels_to_convert,
+                                          converter=conversion_executable, output_path=output_dir)
     ide_to_csv_converter.run()
 
-    adj_ide_name = adj_ide_filename.split('.')[0]
+    progress_callback("Loading CSV data")
+
+    split_true_ide_name = true_ide_path.split('\\')
+    split_adj_ide_name = adj_ide_path.split('\\')
+
+    true_ide_name = split_true_ide_name[-1].split('.')[0]
+    adj_ide_name = split_adj_ide_name[-1].split('.')[0]
 
     filename_dict = {
-        "true_signal": "%s\\%s_Ch80.csv" % (ides_path, true_ide_filename.split('.')[0]),
-        "true_sync": "%s\\%s_Ch08.csv" % (ides_path, true_ide_filename.split('.')[0]),
-        "adj_signal": "%s\\%s_Ch80.csv" % (ides_path, adj_ide_name),
-        "adj_sync": "%s\\%s_Ch08.csv" % (ides_path, adj_ide_name),
+        "true_signal": "%s\\%s_Ch80.csv" % (output_dir, true_ide_name),
+        "true_sync": "%s\\%s_Ch08.csv" % (output_dir, true_ide_name),
+        "adj_signal": "%s\\%s_Ch80.csv" % (output_dir, adj_ide_name),
+        "adj_sync": "%s\\%s_Ch08.csv" % (output_dir, adj_ide_name),
     }
 
     # Load csv data
@@ -389,18 +409,29 @@ def sync_and_create_new_csv(ides_path, true_ide_filename, adj_ide_filename, conv
 
     # Get synchronized timesteps
     true_times = data_dict['true_time']
-    TRUE_SAMPLE_PERIOD = (true_times[-1] - true_times[0]) / (len(true_times) - 1)
-    _, new_adj_times, sample_rate_ratio = align_signals(data_dict['true_signal'], data_dict['adj_signal'], data_dict['true_sync'],
-                                     data_dict['adj_sync'], true_times, data_dict['adj_time'], TRUE_SAMPLE_PERIOD)	# , plot_info=True
+    true_sample_period = (true_times[-1] - true_times[0]) / (len(true_times) - 1)
+    _, new_adj_times, sample_rate_ratio = align_signals(
+        data_dict['true_signal'],
+        data_dict['adj_signal'],
+        data_dict['true_sync'],
+        data_dict['adj_sync'],
+        true_times,
+        data_dict['adj_time'],
+        true_sample_period,
+        progress_callback=progress_callback,
+        plot_info=show_signal_plots,
+    )
+
+    progress_callback("Creating adjusted CSV files")
 
     time_offset = new_adj_times[0] - data_dict["adj_time"][0]
 
-    #build list of adjustable CSV files
-    adj_files = [fn for fn in os.listdir(ides_path) if fn.endswith('.csv') and fn.startswith(adj_ide_name) and
+    # build list of adjustable CSV files
+    adj_files = [fn for fn in os.listdir(output_dir) if fn.endswith('.csv') and fn.startswith(adj_ide_name) and
                  not fn.endswith("adjusted.csv")]
 
     for fn in adj_files:
-        with open(os.path.join(ides_path, fn)) as f:
+        with open(os.path.join(output_dir, fn)) as f:
             reader = csv.reader(f)
             new_signal_data = np.array(list(reader))
 #		new_signal_data[1:, 0] = new_signal_data[1:, 0].astype(np.float)
@@ -410,7 +441,7 @@ def sync_and_create_new_csv(ides_path, true_ide_filename, adj_ide_filename, conv
         adjusted_times += start
         new_signal_data[1:, 0] = adjusted_times
 
-        new_csv_filename = "%s//%s_adjusted.csv" % (ides_path, fn[:-4])
+        new_csv_filename = "%s//%s_adjusted.csv" % (output_dir, fn[:-4])
         with open(new_csv_filename, 'wb') as f:		# Note: Change to wb for Python2, w for Python3. Python3 also needs to remove \n
             writer = csv.writer(f)
             writer.writerows(new_signal_data)
