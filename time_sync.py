@@ -326,7 +326,7 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
         ax1.legend()
         ax2.legend()
         plt.tight_layout()
-        plt.show()
+        plt.show(block=False)
 
     return aligned, adj_times_fixed, sample_rate_ratio
 

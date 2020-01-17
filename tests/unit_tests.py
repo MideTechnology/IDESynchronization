@@ -4,11 +4,10 @@ from __future__ import (absolute_import, division,
 import sys
 import wx
 import numpy as np
-import matplotlib.pyplot as plt
 sys.path.insert(0,'..')
 from UTickSynchronization.time_sync import load_csv_data, get_sample_rate_ratio, align_signals, sync_and_create_new_csv
 from UTickSynchronization.sync_ui import SynchronizationWindow
-
+import matplotlib.pyplot as plt
 
 def make_sine(frequency, sample_period, length, offset_points=0):
     offset_time = offset_points*sample_period
@@ -131,7 +130,7 @@ def test_synchronization_from_ide_to_aligned_csv():
         plt.plot(npa[:, 0], npa[:, -1], label=to_plot_name[j])
 
     plt.legend()
-    plt.show()
+    plt.show(block=False)
 
 def test_synchronization_through_ui():
     """
@@ -162,17 +161,18 @@ def test_synchronization_through_ui():
         plt.plot(npa[:, 0], npa[:, -1], label=to_plot_name[j])
 
     plt.legend()
-    plt.show()
 
+    frame.Close()
+    plt.show()
 
 
 if __name__ == '__main__':
     if test_sample_rate_ratio():
         print("Sample Rate Ratio test passed")
 
-#	test_align_signals()
+	# test_align_signals()
 
-#	test_using_pete_data()
+	# test_using_pete_data()
 
     # test_synchronization_from_ide_to_aligned_csv()
 
