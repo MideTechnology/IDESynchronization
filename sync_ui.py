@@ -3,7 +3,8 @@ from __future__ import (absolute_import, division,
 
 import wx
 import os
-
+import sys
+sys.path.insert(0,'..')
 from UTickSynchronization.time_sync import sync_and_create_new_csv
 
 
@@ -15,11 +16,12 @@ class ProgressDialogWrapper:
     def __call__(self, text):
         self.progress_dialog.Update(self.cur_num, text)
         self.cur_num += 1
+        wx.Yield()
 
 
 class SynchronizationWindow(wx.Frame):
     def __init__(self, parent, title):
-        wx.Frame.__init__(self, parent, title=title, size=(400, 265))
+        wx.Frame.__init__(self, parent, title=title, size=(500, 303))
 
         SPACER_SIZE = 10
 
@@ -38,6 +40,13 @@ class SynchronizationWindow(wx.Frame):
         self.graph_check_box = wx.CheckBox(self, wx.ID_ANY, "Plot Signals")
 
         synchronize_signals_button = wx.Button(self, wx.ID_ANY, "Synchronize Signals")
+
+        logo_path = "logo.png"
+        bundle_dir = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
+        logo_path = os.path.join(bundle_dir, logo_path)
+
+        png_logo = wx.Image(logo_path, wx.BITMAP_TYPE_ANY).ConvertToBitmap()
+        logo_bitmap = wx.StaticBitmap(self, -1, png_logo, (10, 5), (png_logo.GetWidth(), png_logo.GetHeight()))
 
         true_ide_file_sizer = wx.BoxSizer(wx.HORIZONTAL)
         true_ide_file_sizer.AddSpacer(SPACER_SIZE)
@@ -76,6 +85,7 @@ class SynchronizationWindow(wx.Frame):
         main_sizer.AddSpacer(SPACER_SIZE)
         main_sizer.Add(synchronize_signals_button, 0, wx.ALIGN_CENTER)
         main_sizer.AddSpacer(SPACER_SIZE)
+        main_sizer.Add(logo_bitmap, 0, wx.ALIGN_RIGHT)
 
         # Bind the true signal browse button to it's callback
         self.Bind(
@@ -102,9 +112,7 @@ class SynchronizationWindow(wx.Frame):
         # Bind the "Synchronize Signals" button to it's callback
         self.Bind(wx.EVT_BUTTON, lambda e: self.synchronize(), synchronize_signals_button)
 
-        # Layout sizers
         self.SetSizer(main_sizer)
-
         self.Show()
 
     @staticmethod
@@ -142,7 +150,6 @@ class SynchronizationWindow(wx.Frame):
 
     def synchronize(self):
         true_ide_path, adj_ide_path, output_path, create_graphs = self.check_and_get_user_inputs()
-
         if true_ide_path is not None:
             with wx.ProgressDialog(
                     title="Synchronizing Signals",
