@@ -3,6 +3,8 @@ from __future__ import (absolute_import, division,
 
 import numpy as np
 import numba as nb
+import matplotlib
+matplotlib.use('wxAgg')
 import matplotlib.pyplot as plt
 import scipy.signal
 import os
@@ -11,6 +13,7 @@ from fractions import Fraction
 
 from UTickSynchronization.ide_csv_converersion.Ide2CsvWrapper import Ide2CsvWrapper
 import UTickSynchronization.ide_csv_converersion.ide_helpers as ide_helpers
+
 
 @nb.njit
 def xcorr_norm(x, y):
@@ -107,12 +110,13 @@ def get_sample_rate_ratio(true_sync, adjust_sync, true_timestep, adjust_timestep
 
     adjust_freqs = np.fft.rfftfreq(len(adjust_sync), d=adjust_timestep)
     # adjust_freqs = np.fft.rfftfreq(len(adjust_sync), d=1)
-    if plot_info:
-        plt.plot(true_fft_freqs[1:len(true_fft)], true_fft[1:])
-        plt.plot(adjust_freqs[1:len(adjust_fft)], adjust_fft[1:])
-        plt.title("Sync Signal's FFT")
-        plt.xlabel("Frequency")
-        plt.show()
+
+    # if plot_info:
+    #     plt.plot(true_fft_freqs[1:len(true_fft)], true_fft[1:])
+    #     plt.plot(adjust_freqs[1:len(adjust_fft)], adjust_fft[1:])
+    #     plt.title("Sync Signal's FFT")
+    #     plt.xlabel("Frequency")
+    #     plt.show()
 
     adjust_sync_freq = adjust_freqs[np.argmax(adjust_fft)]
     return true_sync_freq / adjust_sync_freq
@@ -188,17 +192,17 @@ def resample_slide_and_compare(true_signal, adj_signal, true_signal_times, samp_
     # Get the timestamps associated with resampled1
     true_signal_times = np.linspace(true_signal_times[0], true_signal_times[-1], len(resampled1))
 
-    if plot_info:
-        print("%d points of interest in signal 1\n%d points of intereste in signal 2"%(len(poi1), len(poi2)))
-        time_step = (true_signal_times[-1] - true_signal_times[0])/(len(resampled1) - 1)
-
-        plt.plot(resampled1)
-        plt.plot(resampled2)
-        plt.plot(poi1, resampled1[poi1], "x")
-        plt.plot(poi2, resampled2[poi2], 'x')
-        plt.xlabel("Time Steps (%.5e seconds)" % time_step)
-        plt.title("Resampled Data with Marked POI ")
-        plt.show()
+    # if plot_info:
+    #     print("%d points of interest in signal 1\n%d points of intereste in signal 2"%(len(poi1), len(poi2)))
+    #     time_step = (true_signal_times[-1] - true_signal_times[0])/(len(resampled1) - 1)
+    #
+    #     plt.plot(resampled1)
+    #     plt.plot(resampled2)
+    #     plt.plot(poi1, resampled1[poi1], "x")
+    #     plt.plot(poi2, resampled2[poi2], 'x')
+    #     plt.xlabel("Time Steps (%.5e seconds)" % time_step)
+    #     plt.title("Resampled Data with Marked POI ")
+    #     plt.show()
 
     progress_callback("Aligning POI pairs for optimal time offset")
 
@@ -255,18 +259,18 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
     :param max_start_offset: The maximum starting time difference to be checked allowed when trying to sync the signals
     :param plot_info: If the original and aligned signals should be plotted by matplotlib
     """
-    if plot_info:
-        plt.plot(true_signal)
-        plt.plot(adjustable_signal)
-        plt.title("Original Signals")
-        plt.xlabel("Time Steps")
-        plt.show()
-
-        plt.plot(true_time_steps, true_signal)
-        plt.plot(adjustable_time_steps, adjustable_signal)
-        plt.title("Original Signals")
-        plt.xlabel("Time (s)")
-        plt.show()
+    # if plot_info:
+    #     plt.plot(true_signal)
+    #     plt.plot(adjustable_signal)
+    #     plt.title("Original Signals")
+    #     plt.xlabel("Time Steps")
+    #     plt.show()
+    #
+    #     plt.plot(true_time_steps, true_signal)
+    #     plt.plot(adjustable_time_steps, adjustable_signal)
+    #     plt.title("Original Signals")
+    #     plt.xlabel("Time (s)")
+    #     plt.show()
 
     # If the maximum start offset is not given, set it to one fourth of the true signal's length
     if max_start_offset is None:
@@ -308,11 +312,19 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
         # plt.xlabel("Time (s)")
         # plt.show()
 
-
-        plt.plot(true_time_steps, true_signal)
-        plt.plot(adj_times_fixed, adjustable_signal)
-        plt.title("Aligned Signals")
-        plt.xlabel("Time (s)")
+        fig, (ax1, ax2) = plt.subplots(2, num="Synchronization Results %d" % (1+max([0] + plt.get_fignums())))
+        ax1.plot(true_time_steps, true_signal, label="True Signal")
+        ax1.plot(adjustable_time_steps, adjustable_signal, label="Adjustable Signal")
+        ax1.set_title("Original Data")
+        ax2.plot(true_time_steps, true_signal, label="True Signal")
+        ax2.plot(adj_times_fixed, adjustable_signal, label="Adjustable Signal")
+        ax2.set_title("Synchronized Data")
+        # fig.suptitle("Before and After Synchronization")
+        ax1.set(xlabel='Time (s)')
+        ax2.set(xlabel='Time (s)')
+        ax1.legend()
+        ax2.legend()
+        plt.tight_layout()
         plt.show()
 
     return aligned, adj_times_fixed, sample_rate_ratio
@@ -374,7 +386,7 @@ def new_load_csv_data(filename_dict):
     }
 
 
-def sync_and_create_new_csv(true_ide_path, adj_ide_path, output_dir, convert_all_channels=False, progress_callback=None, show_signal_plots=False):
+def sync_and_create_new_csv(true_ide_path, adj_ide_path, output_dir, convert_all_channels=True, progress_callback=None, show_signal_plots=False):
     if progress_callback is None:
         progress_callback = lambda x: None
 

@@ -110,11 +110,8 @@ class SynchronizationWindow(wx.Frame):
     @staticmethod
     def file_or_dir_selected(edit_field, browse_dialog):
         if browse_dialog.ShowModal() == wx.ID_OK:
-            # Clear the edit field if anything is in it
-            edit_field.DiscardEdits()
-
-            # Populate the edit field with the new path
-            edit_field.write(browse_dialog.GetPath())
+            # Clear the edit field and populate it with the new path
+            edit_field.SetValue(browse_dialog.GetPath())
 
     def check_and_get_user_inputs(self):
         """
@@ -129,15 +126,15 @@ class SynchronizationWindow(wx.Frame):
 
         # Check that all given files and directories are valid
         if not os.path.isfile(true_ide_path):
-            wx.MessageBox("No file exists at the location given for the true signal!",
+            wx.MessageBox("The True Signal does not exist!",
                           "Invalid File Location", wx.OK, self)
             return 4*[None]
         if not os.path.isfile(adj_ide_path):
-            wx.MessageBox("No file exists at the location given for the adjustable signal!",
+            wx.MessageBox("The Adjustable Signal does not exist!",
                           "Invalid File Location", wx.OK, self)
             return 4*[None]
         if not os.path.isdir(output_path):
-            wx.MessageBox("The output directory given does not exist!",
+            wx.MessageBox("The Output Directory given does not exist!",
                           "Invalid File Location", wx.OK, self)
             return 4*[None]
 
