@@ -75,7 +75,7 @@ def get_sample_period(timestamps):
 
 def get_max_freq(channel_data, sample_period, low_freq_range=400, high_freq_range=1500):
     fft_data = np.abs(np.fft.rfft(channel_data))
-    fft_freqs = np.fft.rfftfreq(len(fft_data), d=sample_period)
+    fft_freqs = np.fft.rfftfreq(len(channel_data), d=sample_period)
     analysis_freq = fft_freqs[1] - fft_freqs[0]
     low_range = int(low_freq_range / analysis_freq)
     high_range = int(high_freq_range / analysis_freq)
@@ -96,30 +96,8 @@ def get_sample_rate_ratio(true_sync, adjust_sync, true_timestep, adjust_timestep
     :param plot_info: A boolean indicating if the true and adjustable signal's FFTs should be plotted with matplotlib
     :return: The ratio of the sampling rates between the true and adjustable signals
     """
-    # true_sync_freq = get_max_freq(true_sync, true_timestep)
-    # adjust_sync_freq = get_max_freq(adjust_sync, adjust_timestep)
-    #
-    # return true_sync_freq / adjust_sync_freq
-    true_fft = np.abs(np.fft.rfft(true_sync))
-    true_fft_freqs = np.fft.rfftfreq(len(true_sync), d=true_timestep)
-
-    adjust_fft = np.abs(np.fft.rfft(adjust_sync))
-
-    true_fft[0] = adjust_fft[0] = np.finfo(adjust_fft.dtype).min
-
-    true_sync_freq = true_fft_freqs[np.argmax(true_fft)]
-
-    adjust_freqs = np.fft.rfftfreq(len(adjust_sync), d=adjust_timestep)
-    # adjust_freqs = np.fft.rfftfreq(len(adjust_sync), d=1)
-
-    # if plot_info:
-    #     plt.plot(true_fft_freqs[1:len(true_fft)], true_fft[1:])
-    #     plt.plot(adjust_freqs[1:len(adjust_fft)], adjust_fft[1:])
-    #     plt.title("Sync Signal's FFT")
-    #     plt.xlabel("Frequency")
-    #     plt.show()
-
-    adjust_sync_freq = adjust_freqs[np.argmax(adjust_fft)]
+    true_sync_freq = get_max_freq(true_sync, true_timestep)
+    adjust_sync_freq = get_max_freq(adjust_sync, adjust_timestep)
     return true_sync_freq / adjust_sync_freq
 
 
@@ -244,8 +222,8 @@ def allign_location_search(true_signal, adj_signal, true_signal_times, poi1, poi
     return best_slices
 
 
-def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, true_time_steps, adjustable_time_steps,
-                  true_sample_period, progress_callback, max_start_offset=None, plot_info=False):
+def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, true_time_signal, adjustable_time_signal,
+                  true_time_sync, adjustable_time_sync, progress_callback, max_start_offset=None, plot_info=False):
     """
     TODO:
      - Plot against time rather than index number
@@ -254,8 +232,8 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
     :param adjustable_signal: An ndarray for the signal data which should be adjusted
     :param true_sync: The sync signal for the 'correct' signal
     :param adjustable_sync: The sync signal for the adjustable signal
-    :param true_time_steps: The times associated with the true_signal data
-    :param adjustable_time_steps: The times associated with the adjustable_signal data
+    :param true_time_signal: The times associated with the true_signal data
+    :param adjustable_time_signal: The times associated with the adjustable_signal data
     :param true_sample_period: The sampling rate for the 'correct' signal
     :param max_start_offset: The maximum starting time difference to be checked allowed when trying to sync the signals
     :param plot_info: If the original and aligned signals should be plotted by matplotlib
@@ -275,27 +253,30 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
 
     # If the maximum start offset is not given, set it to one fourth of the true signal's length
     if max_start_offset is None:
-        max_start_offset = (true_time_steps[-1] - true_time_steps[0]) / 4
+        max_start_offset = (true_time_signal[-1] - true_time_signal[0]) / 4
 
-    true_time_increment = (true_time_steps[-1] - true_time_steps[0])/(len(true_time_steps)-1)
-    adjustable_time_increment = (adjustable_time_steps[-1] - adjustable_time_steps[0]) / (len(adjustable_time_steps) - 1)
+    true_time_increment = get_sample_period(true_time_signal)
+    adjustable_time_increment = get_sample_period(adjustable_time_signal)
+    true_sync_period = get_sample_period(true_time_sync)
+    adjustable_sync_period = get_sample_period(adjustable_time_sync)
 
     progress_callback("Computing sampling frequency error")
 
+    plt.plot(true_time_sync, true_sync)
+    plt.show()
     # Calculate the adjustable signal's sampling rate
-    sample_rate_ratio = get_sample_rate_ratio(true_sync, adjustable_sync, true_time_increment,
-                                              adjustable_time_increment, plot_info)
+    sample_rate_ratio = get_sample_rate_ratio(true_sync, adjustable_sync, true_sync_period,
+                                              adjustable_sync_period, plot_info)
 
-    adjustable_sample_period = true_sample_period / sample_rate_ratio
-    actual_adj_sampling_period = true_time_increment / sample_rate_ratio
+    actual_adj_sampling_period = adjustable_time_increment / sample_rate_ratio
 
     # Align the signals
     aligned = [truth_aligned, adjustable_aligned, aligned_time_steps, poi1, poi2] = resample_slide_and_compare(
         true_signal,
         adjustable_signal,
-        true_time_steps,
-        true_sample_period,
-        adjustable_sample_period,
+        true_time_signal,
+        true_time_increment,
+        actual_adj_sampling_period,
         progress_callback=progress_callback,
         max_start_offset=max_start_offset,
         plot_info=plot_info)
@@ -303,7 +284,7 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
     resampled_sample_period = (aligned_time_steps[-1] - aligned_time_steps[0]) / (len(aligned_time_steps) - 1)
     adj_start_time = aligned_time_steps[0] + (poi1 - poi2) * resampled_sample_period
 
-    adj_times_fixed = adj_start_time + actual_adj_sampling_period * np.arange(len(adjustable_time_steps))
+    adj_times_fixed = adj_start_time + actual_adj_sampling_period * np.arange(len(adjustable_time_signal))
 
     if plot_info:
         # The below commented out code plots the resampled data with it's resampled time stamps
@@ -314,10 +295,10 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
         # plt.show()
 
         fig, (ax1, ax2) = plt.subplots(2, num="Synchronization Results %d" % (1+max([0] + plt.get_fignums())))
-        ax1.plot(true_time_steps, true_signal, label="True Signal")
-        ax1.plot(adjustable_time_steps, adjustable_signal, label="Adjustable Signal")
+        ax1.plot(true_time_signal, true_signal, label="True Signal")
+        ax1.plot(adjustable_time_signal, adjustable_signal, label="Adjustable Signal")
         ax1.set_title("Original Data")
-        ax2.plot(true_time_steps, true_signal, label="True Signal")
+        ax2.plot(true_time_signal, true_signal, label="True Signal")
         ax2.plot(adj_times_fixed, adjustable_signal, label="Adjustable Signal")
         ax2.set_title("Synchronized Data")
         # fig.suptitle("Before and After Synchronization")
@@ -351,8 +332,9 @@ def load_csv_data(base_dir):
         "true_sync": database['a_dev_sync']['data'],
         "adj_signal": database['s_dev_accel']['data'],
         "adj_sync": database['s_dev_sync']['data'],
-        "true_time": database['a_dev_accel']['time'],
-        "adj_time": database['s_dev_accel']['time'],
+        "true_signal_time": database['a_dev_accel']['time'],
+        "adj_signal_time": database['s_dev_accel']['time'],
+        "true_sync_time": database['a_dev_sync']['time'],
         "adj_sync_time": database['s_dev_sync']['time'],
     }
 
@@ -381,8 +363,9 @@ def new_load_csv_data(filename_dict):
         "true_sync": database[filename_dict['true_sync']]['data'],
         "adj_signal": database[filename_dict['adj_signal']]['data'],
         "adj_sync": database[filename_dict['adj_sync']]['data'],
-        "true_time": database[filename_dict['true_signal']]['time'],
-        "adj_time": database[filename_dict['adj_signal']]['time'],
+        "true_signal_time": database[filename_dict['true_signal']]['time'],
+        "adj_signal_time": database[filename_dict['adj_signal']]['time'],
+        "true_sync_time": database[filename_dict['true_sync']]['time'],
         "adj_sync_time": database[filename_dict['adj_sync']]['time'],
     }
 
@@ -423,23 +406,25 @@ def sync_and_create_new_csv(true_ide_path, adj_ide_path, output_dir, convert_all
     data_dict = new_load_csv_data(filename_dict)
 
     # Get synchronized timesteps
-    true_times = data_dict['true_time']
-    true_sample_period = (true_times[-1] - true_times[0]) / (len(true_times) - 1)
+    true_signal_times = data_dict['true_signal_time']
+    true_sample_period = (true_signal_times[-1] - true_signal_times[0]) / (len(true_signal_times) - 1)
+
     _, new_adj_times, sample_rate_ratio = align_signals(
-        data_dict['true_signal'],
-        data_dict['adj_signal'],
-        data_dict['true_sync'],
-        data_dict['adj_sync'],
-        true_times,
-        data_dict['adj_time'],
-        true_sample_period,
+        data_dict['true_signal'],   # true_signal
+        data_dict['adj_signal'],    # adjustable_signal
+        data_dict['true_sync'],     # true_sync
+        data_dict['adj_sync'],      # adjustable_sync
+        data_dict['true_signal_time'],     # true_time_steps
+        data_dict['adj_signal_time'],      # adjustable_time_steps
+        data_dict['true_sync_time'],     # true_time_steps
+        data_dict['adj_sync_time'],      # adjustable_time_steps
         progress_callback=progress_callback,
         plot_info=show_signal_plots,
     )
 
     progress_callback("Creating adjusted CSV files")
 
-    time_offset = new_adj_times[0] - data_dict["adj_time"][0]
+    time_offset = new_adj_times[0] - data_dict["adj_signal_time"][0]
 
     # build list of adjustable CSV files
     adj_files = [fn for fn in os.listdir(output_dir) if fn.endswith('.csv') and fn.startswith(adj_ide_name) and
