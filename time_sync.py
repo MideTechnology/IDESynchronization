@@ -262,8 +262,6 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
 
     progress_callback("Computing sampling frequency error")
 
-    plt.plot(true_time_sync, true_sync)
-    plt.show()
     # Calculate the adjustable signal's sampling rate
     sample_rate_ratio = get_sample_rate_ratio(true_sync, adjustable_sync, true_sync_period,
                                               adjustable_sync_period, plot_info)
@@ -288,12 +286,6 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
 
     if plot_info:
         # The below commented out code plots the resampled data with it's resampled time stamps
-        # plt.plot(true_time_steps, true_signal)
-        # plt.plot(np.linspace(aligned_time_steps[0], aligned_time_steps[-1], len(adjustable_aligned)), adjustable_aligned)
-        # plt.title("Aligned Signals")
-        # plt.xlabel("Time (s)")
-        # plt.show()
-
         fig, (ax1, ax2) = plt.subplots(2, num="Synchronization Results %d" % (1+max([0] + plt.get_fignums())))
         ax1.plot(true_time_signal, true_signal, label="True Signal")
         ax1.plot(adjustable_time_signal, adjustable_signal, label="Adjustable Signal")
@@ -406,8 +398,6 @@ def sync_and_create_new_csv(true_ide_path, adj_ide_path, output_dir, convert_all
     data_dict = new_load_csv_data(filename_dict)
 
     # Get synchronized timesteps
-    true_signal_times = data_dict['true_signal_time']
-    true_sample_period = (true_signal_times[-1] - true_signal_times[0]) / (len(true_signal_times) - 1)
 
     _, new_adj_times, sample_rate_ratio = align_signals(
         data_dict['true_signal'],   # true_signal
