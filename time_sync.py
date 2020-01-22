@@ -123,7 +123,7 @@ def resample_slide_and_compare(true_signal, adj_signal, true_signal_times, samp_
       just appear to hang)
     """
     MAX_SAMP_RATE_RATIO_DENOMINATOR = int(1e6)
-    MIN_LENGTH_MULTIPLIER = 20
+    MIN_LENGTH_MULTIPLIER = 10
 
     if similarity_metric is None:
         similarity_metric = xcorr_norm
@@ -150,8 +150,8 @@ def resample_slide_and_compare(true_signal, adj_signal, true_signal_times, samp_
 
     # resampled1 = scipy.signal.resample(true_signal, samp_rate_1_approx)
     # resampled2 = scipy.signal.resample(adj_signal, samp_rate_2_approx)
-    resampled1 = scipy.signal.resample_poly(true_signal, samp_rate_1_approx, len(true_signal))
-    resampled2 = scipy.signal.resample_poly(adj_signal, samp_rate_2_approx, len(adj_signal))
+    resampled1 = scipy.signal.resample_poly(true_signal, samp_rate_1_approx, len(true_signal))#, padtype="median")
+    resampled2 = scipy.signal.resample_poly(adj_signal, samp_rate_2_approx, len(adj_signal))#, padtype="median")
 
 
     # print("Sample rate ratio approximation error:", samp_rate_ratio - float(sample_rate_ratio_approx))
@@ -169,6 +169,7 @@ def resample_slide_and_compare(true_signal, adj_signal, true_signal_times, samp_
     poi2 = np.union1d(peaks2, valleys2)
 
     # Get the timestamps associated with resampled1
+    # true_signal_times = np.linspace(true_signal_times[0], true_signal_times[-1], len(resampled1)+2)[1:-1]
     true_signal_times = np.linspace(true_signal_times[0], true_signal_times[-1], len(resampled1))
 
     # if plot_info:
@@ -253,7 +254,7 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
 
     # If the maximum start offset is not given, set it to one fourth of the true signal's length
     if max_start_offset is None:
-        max_start_offset = (true_time_signal[-1] - true_time_signal[0]) / 4
+        max_start_offset = max(true_time_signal[-1] - true_time_signal[0], adjustable_time_signal[-1] - adjustable_time_signal[0]) / 4
 
     true_time_increment = get_sample_period(true_time_signal)
     adjustable_time_increment = get_sample_period(adjustable_time_signal)
