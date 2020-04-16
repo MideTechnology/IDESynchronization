@@ -5,8 +5,8 @@ import sys
 import wx
 import numpy as np
 sys.path.insert(0,'..')
-from UTickSynchronization.time_sync import load_csv_data, get_sample_rate_ratio, align_signals, sync_and_create_new_csv
-from UTickSynchronization.sync_ui import SynchronizationWindow
+from IDESynchronization.time_sync import load_csv_data, get_sample_rate_ratio, align_signals, sync_and_create_new_csv
+from IDESynchronization.sync_ui import SynchronizationWindow
 import matplotlib.pyplot as plt
 
 def make_sine(frequency, sample_period, length, offset_points=0):
@@ -57,7 +57,7 @@ def test_align_signals():
 
     whole_signal = test_data_dict['true_signal']
     whole_sync = test_data_dict['true_sync']
-    whole_times = test_data_dict['true_time']
+    whole_times = test_data_dict['true_signal_time']
 
     true_sample_rate = (whole_times[-1] - whole_times[0])/(len(whole_times)-1)
 
@@ -170,7 +170,7 @@ if __name__ == '__main__':
     if test_sample_rate_ratio():
         print("Sample Rate Ratio test passed")
 
-	# test_align_signals()
+    # test_align_signals()
 
 	# test_using_pete_data()
 

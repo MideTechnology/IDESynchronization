@@ -12,8 +12,8 @@ import csv
 import sys
 from fractions import Fraction
 
-from UTickSynchronization.ide_csv_converersion.Ide2CsvWrapper import Ide2CsvWrapper
-import UTickSynchronization.ide_csv_converersion.ide_helpers as ide_helpers
+from IDESynchronization.ide_csv_conversion.Ide2CsvWrapper import Ide2CsvWrapper
+import IDESynchronization.ide_csv_conversion.ide_helpers as ide_helpers
 
 
 @nb.njit
@@ -368,7 +368,7 @@ def sync_and_create_new_csv(true_ide_path, adj_ide_path, output_dir, convert_all
         progress_callback = lambda x: None
 
     to_convert_to_csv = [true_ide_path, adj_ide_path]
-    conversion_executable = "ide_csv_converersion\\ide2csv_64b.exe"
+    conversion_executable = "ide_csv_conversion\\ide2csv_64b.exe"
     bundle_dir = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
     conversion_executable = os.path.join(bundle_dir, conversion_executable)
 

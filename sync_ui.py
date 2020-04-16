@@ -5,7 +5,7 @@ import wx
 import os
 import sys
 sys.path.insert(0,'..')
-from UTickSynchronization.time_sync import sync_and_create_new_csv
+from IDESynchronization.time_sync import sync_and_create_new_csv
 
 
 class ProgressDialogWrapper:

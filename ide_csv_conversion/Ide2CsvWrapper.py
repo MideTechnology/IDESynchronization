@@ -1,7 +1,7 @@
 """
 @author: Peter Scheidler, Mide Technology
 """
-import UTickSynchronization.ide_csv_converersion.ide_helpers as ide_helpers
+import IDESynchronization.ide_csv_conversion.ide_helpers as ide_helpers
 import subprocess
 import os
 
