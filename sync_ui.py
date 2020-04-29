@@ -1,6 +1,10 @@
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 
+if __name__ == "__main__":  # This is super hacky, and will only be used on a *very* short term basis
+    import matplotlib
+    matplotlib.use('wxAgg')
+
 import wx
 import os
 import sys

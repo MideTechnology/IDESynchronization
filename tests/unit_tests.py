@@ -58,58 +58,108 @@ def test_align_signals():
     whole_signal = test_data_dict['true_signal']
     whole_sync = test_data_dict['true_sync']
     whole_times = test_data_dict['true_signal_time']
+    whole_sync_times = test_data_dict['true_sync_time']
 
-    true_sample_rate = (whole_times[-1] - whole_times[0])/(len(whole_times)-1)
+    true_samp_rate = 3
+    adjustable_samp_rate = 2
+    true_offset = 0
+    adjustable_offset = 200
 
-    true_samp_rate = 2
-    adjustable_samp_rate = 3
-    true_offset = 1000
-    adjustable_offset = 0
+    for true_offset in [0,100, 200]:
+        for adjustable_offset in [0, 200]:   #THIS GROSS LOOP IS ONLY HERE BECAUSE I'M TESTING SOMETHING########.
+    # for true_offset in [0,200]:
+    #     for adjustable_offset in [0, 200]:   #THIS GROSS LOOP IS ONLY HERE BECAUSE I'M TESTING SOMETHING########
+    # for (true_offset, adjustable_offset) in [(0, 200), (200, 0)]:
+    # for (true_offset, adjustable_offset) in [(0, 0), (200, 200)]:
+            true_signal = whole_signal[true_offset:: true_samp_rate]
+            adjustable_signal = whole_signal[adjustable_offset:: adjustable_samp_rate]
 
-    true_signal = whole_signal[true_offset:: true_samp_rate]
-    adjustable_signal = whole_signal[adjustable_offset:: adjustable_samp_rate]
-    true_times = whole_times[true_offset:: true_samp_rate]
+            true_times = whole_times[true_offset:: true_samp_rate]
+            adj_times = whole_times[adjustable_offset:: adjustable_samp_rate]
 
-    true_sync = whole_sync[true_offset:: true_samp_rate]
-    adjustable_sync = whole_sync[adjustable_offset:: adjustable_samp_rate]
+            print("TIMES", true_times[:5], adj_times[:5])
 
-    align_signals(true_signal,
-                  adjustable_signal,
-                  true_sync,
-                  adjustable_sync,
-                  true_times[:len(true_signal)],
-                  true_times[:len(adjustable_signal)],
-                  true_sample_rate,
-                  lambda x: None,
-                  plot_info=True)
+            true_sync = whole_sync[true_offset:: true_samp_rate]
+            adjustable_sync = whole_sync[adjustable_offset:: adjustable_samp_rate]
+
+            true_sync_times = whole_sync_times[true_offset:: true_samp_rate]
+            adj_sync_times = whole_sync_times[adjustable_offset:: adjustable_samp_rate]
+
+            # x[0] + np.cumsum(np.diff((x - x[0]), prepend=[0]))
+            adj_sync_times = adj_sync_times[0] + np.cumsum(np.diff((adj_sync_times - adj_sync_times[0]), prepend=[0]) * (true_samp_rate / adjustable_samp_rate))
+            adj_times = adj_times[0] + np.cumsum(np.diff((adj_times - adj_times[0]), prepend=[0]) * (true_samp_rate / adjustable_samp_rate))
+            # adj_sync_times *= true_samp_rate / adjustable_samp_rate
+
+            # plt.plot(true_times, true_signal)
+            # plt.plot(adj_times, adjustable_signal)
+            # plt.title("%d, %d"%(true_samp_rate, adjustable_samp_rate))
+            # plt.show()
+
+            # stuff = [adjustable_signal,true_signal, adjustable_sync,true_sync,true_times[:len(adjustable_signal)],true_times[:len(true_signal)],true_sync_times[:len(adjustable_sync)],true_sync_times[:len(true_sync)]]
+
+            # print("LENGTHS", list(map(len, stuff)))
+            if true_times[0] < adj_times[0]:
+
+                align_signals(adjustable_signal,true_signal,
+                              adjustable_sync,true_sync,
+                              # true_times[:len(adjustable_signal)],true_times[:len(true_signal)],
+                              adj_times, true_times,
+                              # true_sync_times[:len(adjustable_sync)],true_sync_times[:len(true_sync)],
+                              adj_sync_times, true_sync_times,
+                              lambda x: None,
+                              plot_info=True)
+
+                plt.suptitle("Offsets = (%d, %d), Signals Switched" % (true_offset, adjustable_offset), fontweight='bold')
+                plt.show()
+
+            else:
+
+                align_signals(true_signal,
+                              adjustable_signal,
+                              true_sync,
+                              adjustable_sync,
+                              true_times,
+                              adj_times,
+                              # true_times[:len(true_signal)],
+                              # true_times[:len(adjustable_signal)],
+                              # true_sync_times[:len(true_sync)],
+                              # true_sync_times[:len(adjustable_sync)],
+                              true_sync_times,
+                              adj_sync_times,
+                              lambda x: None,
+                              plot_info=True)
+                plt.suptitle("Offsets = (%d, %d)" % (true_offset, adjustable_offset), fontweight='bold')
+                plt.show()
 
 
-def test_using_pete_data():
+def test_using_pete_data(testing_data_dir="tests\\data"):
     """
     Testing the ability of the code to sync example data.
+
+    TODO:
+     - Rename this function
+     - Give this function a better description
     """
-    TEST_DATA_DIR = "tests\\data"
+    data = load_csv_data(testing_data_dir)
 
-    test_data_dict = load_csv_data(TEST_DATA_DIR)
-
-    true_signal = test_data_dict['true_signal']
-    true_sync = test_data_dict['true_sync']
-    true_times = test_data_dict['true_time']
-
-    adjust_signal = test_data_dict['adj_signal']
-    adjust_sync = test_data_dict['adj_sync']
-    adjust_times = test_data_dict['adj_time']
-
-    TRUE_SAMPLE_RATE = (true_times[-1] - true_times[0]) / (len(true_times) - 1)
-    align_signals(true_signal,
-                  adjust_signal,
-                  true_sync,
-                  adjust_sync,
-                  true_times,
-                  adjust_times,
-                  TRUE_SAMPLE_RATE,
+    align_signals(data['adj_signal'], data['true_signal'],
+                  data['adj_sync'], data['true_sync'],
+                  data['adj_signal_time'], data['true_signal_time'],
+                  data['adj_sync_time'], data['true_sync_time'],
                   lambda x: None,
                   plot_info=True)
+    plt.show()
+
+    align_signals(data['true_signal'], data['adj_signal'],
+                  data['true_sync'], data['adj_sync'],
+                  data['true_signal_time'], data['adj_signal_time'],
+                  data['true_sync_time'], data['adj_sync_time'],
+                  lambda x: None,
+                  plot_info=True)
+    plt.show()
+
+
+
 
 def test_synchronization_from_ide_to_aligned_csv():
     true_ide = "tests\\data\\ANA00008_T2.IDE"
@@ -122,15 +172,15 @@ def test_synchronization_from_ide_to_aligned_csv():
         output_path,
         show_signal_plots=True)
 
-    # Load and plot the data for the original signals and the adjusted signals from the csv files created
-    to_plot_name = ["ANA00008_T2_Ch80.csv", "SSS00001_T2_Ch80.csv", "SSS00001_T2_Ch80_adjusted.csv"]
-    to_plot = list(map(lambda x: "%s\\%s"%(output_path, x), to_plot_name))
-    for j, fn in enumerate(to_plot):
-        npa = np.genfromtxt(fn, delimiter=',', skip_header=1)
-        plt.plot(npa[:, 0], npa[:, -1], label=to_plot_name[j])
-
-    plt.legend()
-    plt.show(block=False)
+    # # Load and plot the data for the original signals and the adjusted signals from the csv files created
+    # to_plot_name = ["ANA00008_T2_Ch80.csv", "SSS00001_T2_Ch80.csv", "SSS00001_T2_Ch80_adjusted.csv"]
+    # to_plot = list(map(lambda x: "%s\\%s"%(output_path, x), to_plot_name))
+    # for j, fn in enumerate(to_plot):
+    #     npa = np.genfromtxt(fn, delimiter=',', skip_header=1)
+    #     plt.plot(npa[:, 0], npa[:, -1], label=to_plot_name[j])
+    #
+    # plt.legend()
+    plt.show()#block=False)  ###### SHOULD GO BACK TO BLOCKING WHEN DONE TESTING SO MUCH ###################
 
 def test_synchronization_through_ui():
     """
@@ -154,26 +204,29 @@ def test_synchronization_through_ui():
     frame.synchronize()
 
     # Load and plot the data for the original signals and the adjusted signals from the csv files created
-    to_plot_name = ["ANA00008_T2_Ch80.csv", "SSS00001_T2_Ch80.csv", "SSS00001_T2_Ch80_adjusted.csv"]
-    to_plot = list(map(lambda x: "%s\\%s"%(output_path, x), to_plot_name))
-    for j, fn in enumerate(to_plot):
-        npa = np.genfromtxt(fn, delimiter=',', skip_header=1)
-        plt.plot(npa[:, 0], npa[:, -1], label=to_plot_name[j])
-
-    plt.legend()
+    # to_plot_name = ["ANA00008_T2_Ch80.csv", "SSS00001_T2_Ch80.csv", "SSS00001_T2_Ch80_adjusted.csv"]
+    # to_plot = list(map(lambda x: "%s\\%s"%(output_path, x), to_plot_name))
+    # for j, fn in enumerate(to_plot):
+    #     npa = np.genfromtxt(fn, delimiter=',', skip_header=1)
+    #     plt.plot(npa[:, 0], npa[:, -1], label=to_plot_name[j])
+    #
+    # plt.legend()
 
     frame.Close()
     plt.show()
+
+    del app  # Pretty sure this is better practice than just leaving it (though it may destroy itself, should look into)
 
 
 if __name__ == '__main__':
     if test_sample_rate_ratio():
         print("Sample Rate Ratio test passed")
 
+    # Was being used to help locate the asymmetry bug, will put back to normal when done!
     # test_align_signals()
 
-	# test_using_pete_data()
+    test_using_pete_data()
 
-    # test_synchronization_from_ide_to_aligned_csv()
+    test_synchronization_from_ide_to_aligned_csv()
 
     test_synchronization_through_ui()

@@ -4,7 +4,7 @@ from __future__ import (absolute_import, division,
 import numpy as np
 import numba as nb
 import matplotlib
-matplotlib.use('wxAgg')
+# matplotlib.use('wxAgg')
 import matplotlib.pyplot as plt
 import scipy.signal
 import os
@@ -131,17 +131,22 @@ def resample_slide_and_compare(true_signal, adj_signal, true_signal_times, samp_
     # Handle resampling with integer approximations of the sampling rate ratio (This can likely be improved)
     samp_rate_ratio = samp_rate1 / samp_rate2 * len(true_signal) / len(adj_signal)
 
-    sample_rate_ratio_approx = Fraction(samp_rate_ratio)
+    # if samp_rate_ratio == 1:
+    #     sample_rate_ratio_approx = Fraction(1.00001)  #########################################MAKE SURE THIS IS ALL HANDLED SUPER WELL IF NO SYNC DATA IS PRESENT###############################
+    # else:
+    sample_rate_ratio_approx = Fraction(samp_rate_ratio) #########################################MAKE SURE THIS IS ALL HANDLED SUPER WELL IF NO SYNC DATA IS PRESENT###############################
+
     if samp_rate_ratio > 1:
         sample_rate_ratio_approx = 1/((1/sample_rate_ratio_approx).limit_denominator(MAX_SAMP_RATE_RATIO_DENOMINATOR))
     else:
         sample_rate_ratio_approx = sample_rate_ratio_approx.limit_denominator(MAX_SAMP_RATE_RATIO_DENOMINATOR)
 
     if min(sample_rate_ratio_approx.numerator, sample_rate_ratio_approx.denominator) < MIN_LENGTH_MULTIPLIER * max(len(true_signal), len(adj_signal)):
-        scaler_multiplier = int(max(sample_rate_ratio_approx.numerator, sample_rate_ratio_approx.denominator) / (MIN_LENGTH_MULTIPLIER * max(len(true_signal), len(adj_signal))))
-        scaler_multiplier = max(1, scaler_multiplier)
+        # scaler_multiplier = int(max(sample_rate_ratio_approx.numerator, sample_rate_ratio_approx.denominator) / (MIN_LENGTH_MULTIPLIER * max(len(true_signal), len(adj_signal))))
+        scaler_multiplier = int((MIN_LENGTH_MULTIPLIER * max(len(true_signal), len(adj_signal))) / min(sample_rate_ratio_approx.numerator, sample_rate_ratio_approx.denominator))
+        # scaler_multiplier = max(1, scaler_multiplier) ############THIS MIGHT ACTUALLY BE NEEDED#######!!!!!!!!!!!!#######!!!!!!!!!!!!#######!!!!!!!!!!!!#######!!!!!!!!!!!!#######!!!!!!!!!!!!#######!!!!!!!!!!!!#######!!!!!!!!!!!!#######!!!!!!!!!!!!#######!!!!!!!!!!!!#######!!!!!!!!!!!!
     else:
-        scaler_multiplier = 1
+        scaler_multiplier = 1.
 
     samp_rate_1_approx = sample_rate_ratio_approx.numerator * scaler_multiplier
     samp_rate_2_approx = sample_rate_ratio_approx.denominator * scaler_multiplier
@@ -263,9 +268,17 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
 
     progress_callback("Computing sampling frequency error")
 
-    # Calculate the adjustable signal's sampling rate
-    sample_rate_ratio = get_sample_rate_ratio(true_sync, adjustable_sync, true_sync_period,
-                                              adjustable_sync_period, plot_info)
+    ##################### This will likely be where avoiding the use of sync signals begins ####################
+    EXISTS_SYNC_SIGNAL = True
+    if EXISTS_SYNC_SIGNAL:
+        # Calculate the adjustable signal's sampling rate
+        sample_rate_ratio = get_sample_rate_ratio(true_sync, adjustable_sync, true_sync_period,
+                                                  adjustable_sync_period, plot_info)
+    else:
+        sample_rate_ratio = 1 #####################################################################################################################
+
+
+    actual_adj_sampling_period = adjustable_time_increment / sample_rate_ratio #SHOULD THIS BE IN IF STATEMENT?#####################################################
 
     actual_adj_sampling_period = adjustable_time_increment / sample_rate_ratio
 
@@ -290,7 +303,7 @@ def align_signals(true_signal, adjustable_signal, true_sync, adjustable_sync, tr
         fig, (ax1, ax2) = plt.subplots(2, num="Synchronization Results %d" % (1+max([0] + plt.get_fignums())))
         ax1.plot(true_time_signal, true_signal, label="True Signal")
         ax1.plot(adjustable_time_signal, adjustable_signal, label="Adjustable Signal")
-        ax1.set_title("Original Data")
+        ax1.set_title(("TRUE SIGNAL STARTED BEFORE ORIGINAL ADJ SIGNAL " if true_time_signal[0] < adjustable_time_signal[0] else "") + "Original Data")
         ax2.plot(true_time_signal, true_signal, label="True Signal")
         ax2.plot(adj_times_fixed, adjustable_signal, label="Adjustable Signal")
         ax2.set_title("Synchronized Data")
